@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0f172a" />
+<title>Smart Study Monitor</title>
+<style>
+  :root {
+    --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --muted: #94a3b8;
+    --ok: #22c55e; --bad: #ef4444; --warn: #f97316; --accent: #6366f1;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 12px; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    max-width: 640px; margin-inline: auto;
+  }
+  h1 { font-size: 1.25rem; margin: 4px 0 12px; }
+  .card { background: var(--card); border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+  .stage { position: relative; border-radius: 14px; overflow: hidden; background: #000; aspect-ratio: 4 / 3; }
+  .mirror { transform: scaleX(-1); }
+  video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .placeholder {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 16px; color: var(--muted); font-size: .95rem;
+  }
+  .banner {
+    position: absolute; left: 8px; right: 8px; top: 8px; padding: 10px 12px; border-radius: 10px;
+    font-weight: 800; text-align: center; font-size: 1.05rem; display: none; color: #fff;
+    animation: pulse 0.8s infinite alternate;
+  }
+  .banner.cover, .banner.sleep { background: var(--bad); }
+  .banner.phone { background: var(--warn); }
+  @keyframes pulse { from { opacity: 1; } to { opacity: .65; } }
+  .status { margin-top: 8px; color: var(--muted); font-size: .85rem; min-height: 1.2em; }
+  .row { display: flex; gap: 8px; }
+  button {
+    flex: 1; border: 0; border-radius: 12px; padding: 14px; font-size: 1rem; font-weight: 700;
+    color: #fff; background: var(--accent);
+  }
+  button.stop { background: var(--bad); }
+  button.ghost { background: #334155; }
+  button:disabled { opacity: .5; }
+  .chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .chip { background: #0f172a; border-radius: 10px; padding: 8px; text-align: center; }
+  .chip small { display: block; color: var(--muted); font-size: .7rem; }
+  .chip b { font-size: .95rem; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .stats b { display: block; font-size: 1.1rem; }
+  .stats small { color: var(--muted); font-size: .7rem; }
+  label { display: block; font-size: .85rem; margin: 10px 0 2px; }
+  label span { float: right; color: var(--muted); }
+  input[type=range] { width: 100%; }
+  details summary { font-weight: 700; cursor: pointer; }
+  .hint { color: var(--muted); font-size: .78rem; margin-top: 6px; line-height: 1.35; }
+</style>
+</head>
+<body>
+  <h1>📚 Smart Study Monitor</h1>
+
+  <div class="stage">
+    <div class="mirror" id="mirror">
+      <video id="video" playsinline muted autoplay></video>
+      <canvas id="overlay"></canvas>
+    </div>
+    <div class="placeholder" id="placeholder"><div>Tap <b>Start</b> and allow camera access.<br />Prop your phone up so your face is visible.</div></div>
+    <div class="banner" id="banner"></div>
+  </div>
+  <div class="status" id="status">Ready.</div>
+
+  <div class="row" style="margin: 10px 0 12px">
+    <button id="startBtn">▶ Start</button>
+    <button id="testBtn" class="ghost">🔊 Test sound</button>
+  </div>
+
+  <div class="card chips">
+    <div class="chip"><small>Face</small><b id="chipFace">–</b></div>
+    <div class="chip"><small>Eyes</small><b id="chipEyes">–</b></div>
+    <div class="chip"><small>Phone</small><b id="chipPhone">–</b></div>
+  </div>
+
+  <div class="card stats">
+    <div><b id="statTime">00:00</b><small>Session</small></div>
+    <div><b id="statFocus">00:00</b><small>Focused</small></div>
+    <div><b id="statAlerts">0</b><small>Alerts</small></div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>⚙️ Settings</summary>
+      <label>Sleep alert after <span id="vSleep"></span></label>
+      <input type="range" id="sSleep" min="1" max="6" step="0.5" />
+      <label>Face-hidden alert after <span id="vCover"></span></label>
+      <input type="range" id="sCover" min="1" max="8" step="0.5" />
+      <label>Eye-closed sensitivity <span id="vBlink"></span></label>
+      <input type="range" id="sBlink" min="0.3" max="0.8" step="0.05" />
+      <div class="hint">If it says you're sleeping while your eyes are open, move the slider to the right. If it misses closed eyes, move it left. Watch the "Eyes" box to see the live value.</div>
+      <label>Phone confidence <span id="vPhone"></span></label>
+      <input type="range" id="sPhone" min="0.3" max="0.8" step="0.05" />
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px">
+        <input type="checkbox" id="sVibrate" /> Vibrate on alert
+      </label>
+      <label style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="sFront" /> Use front camera
+      </label>
+      <div class="hint">Camera change applies the next time you tap Start.</div>
+    </details>
+  </div>
+
+  <div class="hint" style="padding-bottom:24px">
+    Everything runs on your phone. Video never leaves the device. Keep this tab open and the screen on while studying.
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
